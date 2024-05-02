@@ -1140,7 +1140,7 @@ CREATE TRIGGER `TR_RECEIPTS_DETAIL` AFTER INSERT ON `receipts_detail` FOR EACH R
 	end if;
 	if (New.Form_Flag = 'B')
 		then 
-				INSERT INTO Payments_Accounting (Form_ID, Form_DETAIL_ID, GL_FLAG, AMOUNT, GL_ACC_ID, FORM_DATE, FORM_REFERENCE, COMPANY_ID,Form_Flag) VALUES (NEW.RECEIPTS_ID, NEW.ID,case when New.Form_Amount<0 then 5552 else 5551 end,case when New.Form_Amount<0 then NEW.FORM_AMOUNT*-1 else New.Form_Amount end, NEW.GL_ACC_ID, ENTRY_DATE, REC_REF, COM_ID,'Receipts');
+				INSERT INTO Payments_Accounting (Form_ID, Form_DETAIL_ID, GL_FLAG, AMOUNT, GL_ACC_ID, FORM_DATE, FORM_REFERENCE, COMPANY_ID,Form_Flag) VALUES (NEW.RECEIPTS_ID, NEW.ID,case when New.Form_Amount<0 then 5551 else 5552 end,case when New.Form_Amount<0 then NEW.FORM_AMOUNT*-1 else New.Form_Amount end, NEW.GL_ACC_ID, ENTRY_DATE, REC_REF, COM_ID,'Receipts');
 	end if;
 	
 END $$
@@ -1223,7 +1223,7 @@ CREATE TRIGGER `TR_RECEIPTS_DETAIL_UPT` AFTER UPDATE ON `receipts_detail` FOR EA
 			end if;
 	if (New.Form_Flag = 'B')
 		then 
-				INSERT INTO Payments_Accounting (Form_ID, Form_DETAIL_ID, GL_FLAG, AMOUNT, GL_ACC_ID, FORM_DATE, FORM_REFERENCE, COMPANY_ID,Form_Flag) VALUES (NEW.RECEIPTS_ID, NEW.ID,case when New.Form_Amount<0 then 5552 else 5551 end,case when New.Form_Amount<0 then NEW.FORM_AMOUNT*-1 else New.Form_Amount end, NEW.GL_ACC_ID, ENTRY_DATE, REC_REF, COM_ID,'Receipts');
+				INSERT INTO Payments_Accounting (Form_ID, Form_DETAIL_ID, GL_FLAG, AMOUNT, GL_ACC_ID, FORM_DATE, FORM_REFERENCE, COMPANY_ID,Form_Flag) VALUES (NEW.RECEIPTS_ID, NEW.ID,case when New.Form_Amount<0 then 5551 else 5552 end,case when New.Form_Amount<0 then NEW.FORM_AMOUNT*-1 else New.Form_Amount end, NEW.GL_ACC_ID, ENTRY_DATE, REC_REF, COM_ID,'Receipts');
 	end if;
 
 END $$
