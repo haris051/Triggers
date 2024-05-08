@@ -862,7 +862,7 @@ CREATE TRIGGER `TR_PAYMENTS_DETAIL` AFTER INSERT ON `payments_detail` FOR EACH R
 				INSERT INTO Payments_Accounting (Form_ID, Form_DETAIL_ID, GL_FLAG, AMOUNT, GL_ACC_ID, FORM_DATE, FORM_REFERENCE, COMPANY_ID,Form_Flag) VALUES (NEW.PAYMENTS_ID, NEW.ID, 106,case when New.Form_Amount<0 then New.Form_Amount*-1 else NEW.FORM_AMOUNT end, NEW.GL_ACC_ID, ENTRY_DATE, PAY_REF, COM_ID,'Payments');
 		end if;
 
-		if(New.FORM_FLAG = 'I')
+		if(New.FORM_FLAG = 'T')
            		then 
 				INSERT INTO Payments_Accounting (Form_ID, Form_DETAIL_ID, GL_FLAG, AMOUNT, GL_ACC_ID, FORM_DATE, FORM_REFERENCE, COMPANY_ID,Form_Flag) VALUES (NEW.PAYMENTS_ID, NEW.ID,case when NEW.FORM_AMOUNT<0 then 5554 else 5553 end,case when New.Form_Amount<0 then New.Form_Amount*-1 else NEW.FORM_AMOUNT end, NEW.GL_ACC_ID, ENTRY_DATE, PAY_REF, COM_ID,'Payments');
 		end if;
@@ -947,7 +947,7 @@ CREATE TRIGGER `TR_PAYMENTS_DETAIL_UPT` AFTER UPDATE ON `payments_detail` FOR EA
 				INSERT INTO Payments_Accounting (Form_ID, Form_DETAIL_ID, GL_FLAG, AMOUNT, GL_ACC_ID, FORM_DATE, FORM_REFERENCE, COMPANY_ID,Form_Flag) VALUES (NEW.PAYMENTS_ID, NEW.ID, 106,case when New.Form_Amount<0 then New.Form_Amount*-1 else NEW.FORM_AMOUNT end, NEW.GL_ACC_ID, ENTRY_DATE, PAY_REF, COM_ID,'Payments');
 		end if;
 
-		if(New.FORM_FLAG = 'I')
+		if(New.FORM_FLAG = 'T')
            		then 
 				INSERT INTO Payments_Accounting (Form_ID, Form_DETAIL_ID, GL_FLAG, AMOUNT, GL_ACC_ID, FORM_DATE, FORM_REFERENCE, COMPANY_ID,Form_Flag) VALUES (NEW.PAYMENTS_ID, NEW.ID,case when NEW.FORM_AMOUNT<0 then 5554 else 5553 end,case when New.Form_Amount<0 then New.Form_Amount*-1 else NEW.FORM_AMOUNT end, NEW.GL_ACC_ID, ENTRY_DATE, PAY_REF, COM_ID,'Payments');
 		end if;
