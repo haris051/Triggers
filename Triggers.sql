@@ -311,7 +311,7 @@ CREATE TRIGGER `TR_PAYMENTS_DEL` BEFORE DELETE ON `payments` FOR EACH ROW BEGIN
 
 
 	/*NEW VERSION*/
-	DELETE FROM Payments_Accounting WHERE Form_ID = OLD.ID and Form_Flag='Payments';
+	DELETE FROM Payments_Accounting WHERE Form_ID = OLD.ID AND Form_DETAIL_ID IS NULL and Form_Flag='Payments';
 	/*NEW VERSION*/
 
 END $$
@@ -517,7 +517,7 @@ CREATE TRIGGER `TR_RECEIPTS_DEL` BEFORE DELETE ON `receipts` FOR EACH ROW BEGIN
 
 
 	/*NEW VERSION*/
-	DELETE FROM Payments_Accounting WHERE Form_ID = OLD.ID and Form_Flag='Receipts';
+	DELETE FROM Payments_Accounting WHERE Form_ID = OLD.ID AND Form_DETAIL_ID IS NULL and Form_Flag='Receipts';
 	/*NEW VERSION*/
 
 END $$
@@ -722,7 +722,7 @@ CREATE TRIGGER `charges_BEFORE_DELETE` BEFORE DELETE ON `charges` FOR EACH ROW B
 	/*OLD ACCOUNTING TABLES*/
 	
 	/*NEW VERSION*/
-	DELETE FROM Payments_Accounting WHERE Form_ID = OLD.ID and Form_Flag='Charges';
+	DELETE FROM Payments_Accounting WHERE Form_ID = OLD.ID AND Form_DETAIL_ID IS NULL and Form_Flag='Charges';
 	/*NEW VERSION*/
 	
 END $$
@@ -903,7 +903,7 @@ CREATE TRIGGER `TR_PARTIAL_CREDIT_DEL` BEFORE DELETE ON `partial_credit` FOR EAC
 
 
 	/*NEW VERSION*/
-	DELETE FROM Purchase_Accounting WHERE Form_ID = OLD.ID and Form_Flag='PartialCredit';
+	DELETE FROM Purchase_Accounting WHERE Form_ID = OLD.ID AND Form_DETAIL_ID IS NULL and Form_Flag='PartialCredit';
 	/*NEW VERSION*/
 
 END $$
@@ -1045,7 +1045,7 @@ CREATE TRIGGER `TR_RECEIVE_ORDER_DEL` BEFORE DELETE ON `receive_order` FOR EACH 
 
 
 	/*NEW VERSION*/
-	 DELETE FROM Purchase_Accounting WHERE Form_ID = OLD.ID and Form_Flag='ReceiveOrder';
+	 DELETE FROM Purchase_Accounting WHERE Form_ID = OLD.ID AND Form_DETAIL_ID IS NULL and Form_Flag='ReceiveOrder';
 	/*NEW VERSION*/
 
 END $$
@@ -1159,7 +1159,7 @@ CREATE TRIGGER `TR_VENDOR_CREDIT_MEMO_DEL` BEFORE DELETE ON `vendor_credit_memo`
 
 
 	/*NEW VERSION*/
-	DELETE FROM Purchase_Accounting WHERE Form_ID = OLD.ID and Form_Flag='VendorCreditMemo';
+	DELETE FROM Purchase_Accounting WHERE Form_ID = OLD.ID AND Form_DETAIL_ID IS NULL and Form_Flag='VendorCreditMemo';
 	/*NEW VERSION*/
 
 END $$
@@ -1351,7 +1351,7 @@ CREATE  TRIGGER `TR_SALE_INVOICE_DEL` BEFORE DELETE ON `sale_invoice` FOR EACH R
 
 
 	/*NEW VERSION*/
-	DELETE FROM Sales_Accounting WHERE Form_ID = OLD.ID and Form_Flag='Saleinvoice';
+	DELETE FROM Sales_Accounting WHERE Form_ID = OLD.ID AND Form_DETAIL_ID IS NULL and Form_Flag='Saleinvoice';
 	/*NEW VERSION*/
 
 END $$
@@ -1560,7 +1560,7 @@ CREATE TRIGGER `TR_SALE_RETURN_DEL` BEFORE DELETE ON `sale_return` FOR EACH ROW 
 
 
 	/*NEW VERSION*/
-	DELETE FROM Sales_Accounting WHERE Form_ID = OLD.ID and Form_Flag='Salereturn';
+	DELETE FROM Sales_Accounting WHERE Form_ID = OLD.ID AND Form_DETAIL_ID IS NULL and Form_Flag='Salereturn';
 	/*NEW VERSION*/
 
 END $$
@@ -1845,7 +1845,7 @@ CREATE TRIGGER `TR_REPLACEMENT_DEL` BEFORE DELETE ON `replacement` FOR EACH ROW 
 
 
 	/*NEW VERSION*/
-	DELETE FROM Sales_Accounting WHERE Form_ID = OLD.ID and Form_Flag='Replacement';
+	DELETE FROM Sales_Accounting WHERE Form_ID = OLD.ID AND Form_DETAIL_ID IS NULL and Form_Flag='Replacement';
 	/*NEW VERSION*/
 
 END $$
@@ -2021,7 +2021,7 @@ CREATE TRIGGER `TR_STOCK_TRANSFER_DEL` BEFORE DELETE ON `stock_transfer` FOR EAC
 
 
 	/*NEW VERSION*/
-	DELETE FROM Stock_Accounting WHERE Form_ID = OLD.ID and Form_Flag='StockTransfer';
+	DELETE FROM Stock_Accounting WHERE Form_ID = OLD.ID AND Form_DETAIL_ID IS NULL and Form_Flag='StockTransfer';
 	/*NEW VERSION*/
 
 END $$
@@ -2162,7 +2162,7 @@ CREATE TRIGGER `TR_STOCK_IN_DEL` BEFORE DELETE ON `stock_in` FOR EACH ROW BEGIN
 
 
 	/*NEW VERSION*/
-	DELETE FROM Stock_Accounting WHERE Form_ID = OLD.ID and Form_Flag='StockIn';
+	DELETE FROM Stock_Accounting WHERE Form_ID = OLD.ID AND Form_DETAIL_ID IS NULL and Form_Flag='StockIn';
 	/*NEW VERSION*/
 
 END $$
