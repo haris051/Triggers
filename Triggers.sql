@@ -210,6 +210,259 @@ CREATE TRIGGER `TR_RECEIVE_MONEY` AFTER INSERT ON `receive_money` FOR EACH ROW B
 END $$
 DELIMITER ;
 
+
+drop trigger if Exists TR_RECEIVE_MONEY_UPDATE;
+DELIMITER $$
+CREATE TRIGGER `TR_RECEIVE_MONEY_UPDATE` BEFORE UPDATE ON `receive_money` FOR EACH ROW BEGIN
+
+    DECLARE ID_PS INT DEFAULT 0;
+    DECLARE AMOUNT_PS DOUBLE(22, 2) DEFAULT 0;
+    DECLARE CONFLICTED_PS VARCHAR (10) DEFAULT 'N';
+    -- Insertion column if person changes
+    DECLARE ID_NEW INT DEFAULT 0;
+    DECLARE FORM_AMOUNT_NEW DOUBLE(22, 2) DEFAULT 0;
+    DECLARE IS_CONFLICTED_FULL_NEW VARCHAR (10);
+    DECLARE MSG VARCHAR (100);
+
+    -- If Vendor then update in Payments else Receipts
+    CASE
+        WHEN NEW.IS_VENDOR = 'Y' THEN
+        
+            IF OLD.IS_VENDOR = 'N' THEN
+            
+                SELECT ID, FORM_AMOUNT, IS_CONFLICTED_FULL INTO ID_NEW, FORM_AMOUNT_NEW, IS_CONFLICTED_FULL_NEW FROM RECEIPTS_DETAIL_NEW
+                WHERE FORM_ID = NEW.ID AND FORM_FLAG = 'M';
+            
+                IF OLD.AMOUNT = ABS(FORM_AMOUNT_NEW) AND IS_CONFLICTED_FULL_NEW != 'Y' THEN
+                
+                    DELETE FROM RECEIPTS_DETAIL_NEW WHERE ID = ID_NEW;
+                    
+                    INSERT INTO PAYMENTS_DETAIL_NEW
+                    (
+                      VENDOR_ID,
+                      FORM_ID,
+                      FORM_F_ID,
+                      FORM_TRANSACTION_ID,
+                      FORM_AMOUNT,
+                      FORM_FLAG,
+                      COMPANY_ID
+                    )
+                    SELECT NEW.VENDOR_ID,NEW.ID,NEW.RECEIVE_MONEY_ID,NEW.PAYPAL_TRANSACTION_ID,OLD.AMOUNT,'M',NEW.COMPANY_ID
+                    from dual;
+                    
+                ELSE
+                    -- RAISE_APPLICATION_ERROR(-20000,'=>Unable to update because amount already conflicted.' , CHAR(10) , 'Conflicted amount : { ' , (OLD.AMOUNT - ABS(FORM_AMOUNT_NEW)) , ' }<=');
+                    SET MSG = CONCAT('=>Unable to update because amount already conflicted.' , CHAR(10) , 'Conflicted amount : { ' , (OLD.AMOUNT - ABS(FORM_AMOUNT_NEW)) , ' }<=');
+                    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = MSG;
+                END IF;
+                
+            ELSE
+            
+                IF (OLD.VENDOR_ID != NEW.VENDOR_ID) OR (OLD.RECEIVE_MONEY_ID != NEW.RECEIVE_MONEY_ID) OR (OLD.PAYPAL_TRANSACTION_ID != NEW.PAYPAL_TRANSACTION_ID) THEN
+                
+                    SELECT ID, FORM_AMOUNT, IS_CONFLICTED_FULL INTO ID_NEW, FORM_AMOUNT_NEW, IS_CONFLICTED_FULL_NEW FROM PAYMENTS_DETAIL_NEW
+                    WHERE FORM_ID = NEW.ID AND FORM_FLAG = 'M';
+            
+                    IF OLD.AMOUNT = ABS(FORM_AMOUNT_NEW) AND IS_CONFLICTED_FULL_NEW != 'Y' THEN
+                    
+                        UPDATE PAYMENTS_DETAIL_NEW
+                        SET VENDOR_ID = NEW.VENDOR_ID, FORM_F_ID = NEW.RECEIVE_MONEY_ID, FORM_TRANSACTION_ID = NEW.PAYPAL_TRANSACTION_ID
+                        WHERE ID = ID_NEW;
+                        
+                    ELSE
+                        -- RAISE_APPLICATION_ERROR(-20000,'=>Unable to update because amount already conflicted.' , CHAR(10) , 'Conflicted amount : { ' , (OLD.AMOUNT - ABS(FORM_AMOUNT_NEW)) , ' }<=');
+                        SET MSG = CONCAT('=>Unable to update because amount already conflicted.' , CHAR(10) , 'Conflicted amount : { ' , (OLD.AMOUNT - ABS(FORM_AMOUNT_NEW)) , ' }<=');
+                        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = MSG;
+                    END IF;
+                
+                END IF;
+                
+            END IF;
+        
+            IF NEW.AMOUNT != OLD.AMOUNT THEN
+                
+                SELECT ID, FORM_AMOUNT INTO ID_PS, AMOUNT_PS FROM PAYMENTS_DETAIL_NEW
+                WHERE FORM_ID = NEW.ID AND FORM_FLAG = 'M';
+                    
+                CASE
+                    WHEN NEW.AMOUNT > OLD.AMOUNT THEN
+                        SET AMOUNT_PS := ABS(AMOUNT_PS) + (NEW.AMOUNT - OLD.AMOUNT);
+                        
+                    WHEN NEW.AMOUNT < OLD.AMOUNT THEN
+                             
+                        CASE
+                            WHEN (OLD.AMOUNT - NEW.AMOUNT) > ABS(AMOUNT_PS) THEN
+                                -- RAISE_APPLICATION_ERROR(-20000,'=>Unable to update payment because amount already conflicted.' , CHAR(10) , 'Conflicted amount : { ' , (OLD.AMOUNT - ABS(AMOUNT_PS)) , ' }<=');
+                                SET MSG = CONCAT('=>Unable to update payment because amount already conflicted.' , CHAR(10) , 'Conflicted amount : { ' , (OLD.AMOUNT - ABS(AMOUNT_PS)) , ' }<=');
+                                SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = MSG;
+                            ELSE
+                                SET AMOUNT_PS := ABS(AMOUNT_PS) - (OLD.AMOUNT - NEW.AMOUNT);
+                                
+                                -- Is Full Conflicted or not
+                                IF AMOUNT_PS = 0 THEN
+                                    IF NEW.AMOUNT = AMOUNT_PS THEN
+                                        SET CONFLICTED_PS := 'N';
+                                        
+                                    ELSE
+                                        SET CONFLICTED_PS := 'Y';
+                                        
+                                    END IF;
+                                END IF;
+                                
+                        END CASE;
+                        
+                END CASE;
+                
+                -- Update record into table
+                UPDATE PAYMENTS_DETAIL_NEW 
+                SET FORM_AMOUNT = AMOUNT_PS, IS_CONFLICTED_FULL = CONFLICTED_PS 
+                WHERE ID = ID_PS;
+                
+            END IF;
+            
+         WHEN NEW.IS_VENDOR = 'N' THEN
+        
+            IF OLD.IS_VENDOR = 'Y' THEN
+            
+                SELECT ID, FORM_AMOUNT, IS_CONFLICTED_FULL INTO ID_NEW, FORM_AMOUNT_NEW, IS_CONFLICTED_FULL_NEW FROM PAYMENTS_DETAIL_NEW
+                WHERE FORM_ID = NEW.ID AND FORM_FLAG = 'M';
+            
+                IF OLD.AMOUNT = ABS(FORM_AMOUNT_NEW) AND IS_CONFLICTED_FULL_NEW != 'Y' THEN
+                
+                    DELETE FROM PAYMENTS_DETAIL_NEW WHERE ID = ID_NEW;
+                    
+                    CASE
+                        WHEN NEW.RECEIVE_MONEY_TYPE = 'A' THEN
+                    
+                            INSERT INTO RECEIPTS_DETAIL_NEW
+                            (
+                              CUSTOMER_ID,
+                              FORM_ID,
+                              FORM_F_ID,
+                              FORM_TRANSACTION_ID,
+                              FORM_AMOUNT,
+                              FORM_FLAG,
+                              COMPANY_ID
+                            )
+                            SELECT NEW.CUSTOMER_ID,NEW.ID,NEW.RECEIVE_MONEY_ID,NEW.PAYPAL_TRANSACTION_ID,(-1 * OLD.AMOUNT),'M',NEW.COMPANY_ID
+                            from dual;
+                            
+                        WHEN NEW.RECEIVE_MONEY_TYPE = 'D' THEN
+                        
+                            INSERT INTO RECEIPTS_DETAIL_NEW
+                            (
+                              CUSTOMER_ID,
+                              FORM_ID,
+                              FORM_F_ID,
+                              FORM_TRANSACTION_ID,
+                              FORM_AMOUNT,
+                              FORM_FLAG,
+                              COMPANY_ID
+                            )
+                            SELECT NEW.CUSTOMER_ID,NEW.ID,NEW.RECEIVE_MONEY_ID,NEW.PAYPAL_TRANSACTION_ID,(OLD.AMOUNT * -1),'M',NEW.COMPANY_ID
+                            from dual;
+                            
+                    END CASE;
+                    
+                ELSE
+                    -- RAISE_APPLICATION_ERROR(-20000,'=>Unable to update because amount already conflicted.' , CHAR(10) , 'Conflicted amount : { ' , (OLD.AMOUNT - ABS(FORM_AMOUNT_NEW)) , ' }<=');
+                    SET MSG = CONCAT('=>Unable to update because amount already conflicted.' , CHAR(10) , 'Conflicted amount : { ' , (OLD.AMOUNT - ABS(FORM_AMOUNT_NEW)) , ' }<=');
+                    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = MSG;
+                END IF;
+                
+            ELSE
+            
+                IF (OLD.CUSTOMER_ID != NEW.CUSTOMER_ID) OR (OLD.RECEIVE_MONEY_ID != NEW.RECEIVE_MONEY_ID) OR (OLD.PAYPAL_TRANSACTION_ID != NEW.PAYPAL_TRANSACTION_ID) THEN
+                
+                    SELECT ID, FORM_AMOUNT, IS_CONFLICTED_FULL INTO ID_NEW, FORM_AMOUNT_NEW, IS_CONFLICTED_FULL_NEW FROM RECEIPTS_DETAIL_NEW
+                    WHERE FORM_ID = NEW.ID AND FORM_FLAG = 'M';
+            
+                    IF OLD.AMOUNT = ABS(FORM_AMOUNT_NEW) AND IS_CONFLICTED_FULL_NEW != 'Y' THEN
+                    
+                        CASE
+                            WHEN NEW.RECEIVE_MONEY_TYPE = 'A' THEN
+                            
+                                UPDATE RECEIPTS_DETAIL_NEW
+                                SET FORM_AMOUNT = (-1 * OLD.AMOUNT), CUSTOMER_ID = NEW.CUSTOMER_ID, FORM_F_ID = NEW.RECEIVE_MONEY_ID, FORM_TRANSACTION_ID = NEW.PAYPAL_TRANSACTION_ID
+                                WHERE ID = ID_NEW;
+                                
+                            WHEN NEW.RECEIVE_MONEY_TYPE = 'D' THEN
+                            
+                                UPDATE RECEIPTS_DETAIL_NEW
+                                SET FORM_AMOUNT = (-1 * OLD.AMOUNT), CUSTOMER_ID = NEW.CUSTOMER_ID, FORM_F_ID = NEW.RECEIVE_MONEY_ID, FORM_TRANSACTION_ID = NEW.PAYPAL_TRANSACTION_ID
+                                WHERE ID = ID_NEW;
+                                
+                        END CASE;
+                        
+                    ELSE
+                        -- RAISE_APPLICATION_ERROR(-20000,'=>Unable to update because amount already conflicted.' , CHAR(10) , 'Conflicted amount : { ' , (OLD.AMOUNT - ABS(FORM_AMOUNT_NEW)) , ' }<=');
+                        SET MSG = CONCAT('=>Unable to update because amount already conflicted.' , CHAR(10) , 'Conflicted amount : { ' , (OLD.AMOUNT - ABS(FORM_AMOUNT_NEW)) , ' }<=');
+                        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = MSG;
+                    END IF;
+                
+                END IF;
+            
+            END IF;
+        
+            IF NEW.AMOUNT != OLD.AMOUNT THEN
+                
+                SELECT ID, FORM_AMOUNT INTO ID_PS, AMOUNT_PS FROM RECEIPTS_DETAIL_NEW
+                WHERE FORM_ID = NEW.ID AND FORM_FLAG = 'M';
+                    
+                CASE
+                    WHEN NEW.AMOUNT > OLD.AMOUNT THEN
+                        SET AMOUNT_PS := ABS(AMOUNT_PS) + (NEW.AMOUNT - OLD.AMOUNT);
+                        
+                    WHEN NEW.AMOUNT < OLD.AMOUNT THEN
+                             
+                        CASE
+                            WHEN (OLD.AMOUNT - NEW.AMOUNT) > ABS(AMOUNT_PS) THEN
+                                -- RAISE_APPLICATION_ERROR(-20000,'=>Unable to update payment because amount already conflicted.' , CHAR(10) , 'Conflicted amount : { ' , (OLD.AMOUNT - ABS(AMOUNT_PS)) , ' }<=');
+                                SET MSG = CONCAT('=>Unable to update payment because amount already conflicted.' , CHAR(10) , 'Conflicted amount : { ' , (OLD.AMOUNT - ABS(AMOUNT_PS)) , ' }<=');
+                                SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = MSG;
+                            ELSE
+                                SET AMOUNT_PS := ABS(AMOUNT_PS) - (OLD.AMOUNT - NEW.AMOUNT);
+                                
+                                -- Is Full Conflicted or not
+                                IF AMOUNT_PS = 0 THEN
+                                    IF NEW.AMOUNT = AMOUNT_PS THEN
+                                        SET CONFLICTED_PS := 'N';
+                                        
+                                    ELSE
+                                        SET CONFLICTED_PS := 'Y';
+                                        
+                                    END IF;
+                                END IF;
+                                
+                        END CASE;
+                        
+                END CASE;
+                
+                CASE
+                    WHEN NEW.RECEIVE_MONEY_TYPE = 'A' THEN
+                
+                        -- Update record into table
+                        UPDATE RECEIPTS_DETAIL_NEW
+                        SET FORM_AMOUNT = (-1 * AMOUNT_PS), IS_CONFLICTED_FULL = CONFLICTED_PS 
+                        WHERE ID = ID_PS;
+                        
+                    WHEN NEW.RECEIVE_MONEY_TYPE = 'D' THEN
+                    
+                        -- Update record into table
+                        UPDATE RECEIPTS_DETAIL_NEW
+                        SET FORM_AMOUNT = (-1 * AMOUNT_PS), IS_CONFLICTED_FULL = CONFLICTED_PS 
+                        WHERE ID = ID_PS;
+                        
+                END CASE;
+                
+            END IF;
+        
+    END CASE;
+    
+END $$
+DELIMITER ;
+
+
 -- This Trigger Deletes the Row from Payments Accounting and insert new rows in Payments Accounting
 
 drop trigger if Exists TR_RECEIVE_MONEY_UPT;
