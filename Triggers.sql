@@ -918,9 +918,9 @@ DELIMITER ;
 
 /*Charges Triggers are not present in Server Copy*/
 
-drop trigger if Exists charges_AFTER_INSERT;
+drop trigger if Exists TR_CHARGES;
 DELIMITER $$
-CREATE  TRIGGER `charges_AFTER_INSERT` AFTER INSERT ON `charges` FOR EACH ROW BEGIN
+CREATE  TRIGGER `TR_CHARGES` AFTER INSERT ON `charges` FOR EACH ROW BEGIN
 	 
 	
 	 
@@ -941,9 +941,9 @@ CREATE  TRIGGER `charges_AFTER_INSERT` AFTER INSERT ON `charges` FOR EACH ROW BE
 END $$
 DELIMITER ;
 
-drop trigger if Exists charges_AFTER_UPDATE;
+drop trigger if Exists TR_CHARGES_UPT;
 DELIMITER $$
-CREATE TRIGGER `charges_AFTER_UPDATE` AFTER UPDATE ON `charges` FOR EACH ROW BEGIN
+CREATE TRIGGER `TR_CHARGES_UPT` AFTER UPDATE ON `charges` FOR EACH ROW BEGIN
 	
 		
 	/* OLD ACCOUNTING TABLES */
@@ -964,9 +964,9 @@ CREATE TRIGGER `charges_AFTER_UPDATE` AFTER UPDATE ON `charges` FOR EACH ROW BEG
 END $$
 DELIMITER ;
 
-drop trigger if Exists charges_BEFORE_DELETE;
+drop trigger if Exists TR_CHARGES_DEL;
 DELIMITER $$
-CREATE TRIGGER `charges_BEFORE_DELETE` BEFORE DELETE ON `charges` FOR EACH ROW BEGIN
+CREATE TRIGGER `TR_CHARGES_DEL` BEFORE DELETE ON `charges` FOR EACH ROW BEGIN
 	
 	
 	
@@ -981,9 +981,9 @@ CREATE TRIGGER `charges_BEFORE_DELETE` BEFORE DELETE ON `charges` FOR EACH ROW B
 END $$
 DELIMITER ;
 
-drop trigger if Exists charges_detail_AFTER_INSERT;
+drop trigger if Exists TR_CHARGES_DETAIL;
 DELIMITER $$
-CREATE TRIGGER `charges_detail_AFTER_INSERT` AFTER INSERT ON `charges_detail` FOR EACH ROW BEGIN
+CREATE TRIGGER `TR_CHARGES_DETAIL` AFTER INSERT ON `charges_detail` FOR EACH ROW BEGIN
 	
 	
 	DECLARE ENTRY_DATE DATETIME;
@@ -1017,9 +1017,9 @@ CREATE TRIGGER `charges_detail_AFTER_INSERT` AFTER INSERT ON `charges_detail` FO
 END $$
 DELIMITER ;
 
-drop trigger if Exists charges_detail_AFTER_UPDATE;
+drop trigger if Exists TR_CHARGES_DETAIL_UPT;
 DELIMITER $$
-CREATE TRIGGER `charges_detail_AFTER_UPDATE` AFTER UPDATE ON `charges_detail` FOR EACH ROW BEGIN
+CREATE TRIGGER `TR_CHARGES_DETAIL_UPT` AFTER UPDATE ON `charges_detail` FOR EACH ROW BEGIN
 	
 	DECLARE ENTRY_DATE DATETIME;
 	DECLARE C_REF VARCHAR(50);
@@ -1056,9 +1056,9 @@ CREATE TRIGGER `charges_detail_AFTER_UPDATE` AFTER UPDATE ON `charges_detail` FO
 END $$
 DELIMITER ;
 
-drop trigger if Exists charges_detail_BEFORE_DELETE;
+drop trigger if Exists TR_CHARGES_DETAIL_DEL;
 DELIMITER $$
-CREATE TRIGGER `charges_detail_BEFORE_DELETE` BEFORE DELETE ON `charges_detail` FOR EACH ROW BEGIN
+CREATE TRIGGER `TR_CHARGES_DETAIL_DEL` BEFORE DELETE ON `charges_detail` FOR EACH ROW BEGIN
 	
 	
 
@@ -2939,9 +2939,9 @@ END $$
 DELIMITER ;
 
 /*This Triger is not present in Server Database Copy*/
-drop trigger if Exists general_journal_BEFORE_DELETE;
+drop trigger if Exists TR_GENERAL_JOURNAL_DEL;
 DELIMITER $$
-CREATE TRIGGER `general_journal_BEFORE_DELETE` BEFORE DELETE ON `general_journal` FOR EACH ROW
+CREATE TRIGGER `TR_GENERAL_JOURNAL_DEL` BEFORE DELETE ON `general_journal` FOR EACH ROW
 BEGIN
  
 	/*
