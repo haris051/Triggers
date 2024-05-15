@@ -86,7 +86,7 @@ CREATE TRIGGER `TR_PAYMENT_SENT_DEL` BEFORE DELETE ON `payment_sent` FOR EACH RO
 
 
 	/*NEW VERSION*/
-	DELETE FROM Payments_Accounting WHERE Form_ID = OLD.ID and Form_Flag='PaymentSent';	
+	DELETE FROM Payments_Accounting WHERE Form_ID = OLD.ID AND Form_DETAIL_ID IS NULL and Form_Flag='PaymentSent';	
 	/*NEW VERSION*/
 
 END $$
