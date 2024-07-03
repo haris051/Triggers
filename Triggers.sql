@@ -2249,3 +2249,45 @@ CREATE TRIGGER `TR_GENERAL_JOURNAL_DETAIL_DEL` BEFORE DELETE ON `general_journal
 
 END $$
 DELIMITER ;
+
+drop trigger if Exists CUSTOMER_DETAIL_BEFORE_DELETE;
+DELIMITER $$
+CREATE TRIGGER `CUSTOMER_DETAIL_BEFORE_DELETE` BEFORE DELETE ON `customer_detail` FOR EACH ROW BEGIN
+	
+Declare Is_Conflicted int default null;
+
+select distinct B_CUSTOMER_DETAIL_ID into Is_Conflicted from receipts_detail_junction where B_CUSTOMER_DETAIL_ID = OLD.Id;
+
+
+ if Is_Conflicted is null 
+	then
+		Delete from Receipts_Detail_New where FORM_ID = OLD.id and FORM_FLAG = 'B';
+    else 
+		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = "Amount Already Conflicted";
+	
+END IF;
+	
+END $$
+DELIMITER ;
+
+drop trigger if Exists VENDOR_DETAIL_BEFORE_DELETE;
+DELIMITER $$
+CREATE TRIGGER `VENDOR_DETAIL_BEFORE_DELETE` BEFORE DELETE ON `vendor_detail` FOR EACH ROW BEGIN
+	
+Declare Is_Conflicted int default null;
+
+select distinct B_VENDOR_DETAIL_ID into Is_Conflicted from Payments_detail_junction where B_VENDOR_DETAIL_ID = OLD.Id;
+
+
+
+
+ if Is_Conflicted is null 
+	then
+		Delete from Payments_Detail_New where FORM_ID = OLD.id and FORM_FLAG = 'T';
+    else 
+		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = "Amount Already Conflicted";
+	
+END IF;
+	
+END $$
+DELIMITER ;
