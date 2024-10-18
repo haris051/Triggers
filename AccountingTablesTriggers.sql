@@ -248,5 +248,18 @@ CREATE  TRIGGER `TR_ADJUSTMENT_ACCOUNTING_DEL` BEFORE DELETE ON `adjustment_acco
 END $$
 DELIMITER ;
 
+drop trigger if Exists stock_accounting_AFTER_UPDATE;
+DELIMITER $$
+CREATE TRIGGER `stock_accounting_AFTER_UPDATE` AFTER UPDATE ON `stock_accounting` FOR EACH ROW BEGIN
+Declare Message Text Default '';
+
+    -- Negative Sign is used to avoid reversal transactions instead simply subtract the amount
+    Select FUNC_SET_DAILY_ACCOUNT_BALANCE(OLD.GL_ACC_ID,OLD.Amount*-1,OLD.GL_FLAG,OLD.FORM_DATE) into Message;
+    
+    select FUNC_SET_DAILY_ACCOUNT_BALANCE(NEW.GL_ACC_ID,NEW.Amount,NEW.GL_FLAG,NEW.FORM_DATE) into Message;
+    
+END $$
+DELIMITER ;
+
 
 
