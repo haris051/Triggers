@@ -1728,9 +1728,9 @@ DELIMITER ;
 
 drop trigger if Exists TR_STOCK_TRANSFER;
 DELIMITER $$
-CREATE  TRIGGER `TR_STOCK_TRANSFER` AFTER INSERT ON `stock_transfer` FOR EACH ROW BEGIN
+CREATE TRIGGER `TR_STOCK_TRANSFER` AFTER INSERT ON `stock_transfer` FOR EACH ROW BEGIN
 
-	DECLARE CUSTOMER_ID INT DEFAULT 0;
+    DECLARE CUSTOMER_ID INT DEFAULT 0;
 	DECLARE MSG VARCHAR (100);
 
 	-- CHECKING STOCK OUT CUSTOMER
@@ -1750,7 +1750,13 @@ CREATE  TRIGGER `TR_STOCK_TRANSFER` AFTER INSERT ON `stock_transfer` FOR EACH RO
 	INSERT INTO Stock_Accounting (Form_ID, GL_FLAG, AMOUNT, GL_ACC_ID, FORM_DATE, FORM_REFERENCE, COMPANY_ID,Form_Flag) VALUES (NEW.ID, 57,case when NEW.ST_TOTAL<0 then NEW.ST_TOTAL* -1 else NEW.ST_TOTAL end, NEW.AR_ACC_ID, NEW.ST_ENTRY_DATE, NEW.ST_ID, NEW.COMPANY_FROM_ID,'StockTransfer');
 	INSERT INTO Stock_Accounting (Form_ID, GL_FLAG, AMOUNT, GL_ACC_ID, FORM_DATE, FORM_REFERENCE, COMPANY_ID,Form_Flag) VALUES (NEW.ID, 150,case when NEW.FREIGHT_CHARGES<0 then NEW.FREIGHT_CHARGES* -1 else NEW.FREIGHT_CHARGES end, NEW.FREIGHT_ACC_ID, NEW.ST_ENTRY_DATE, NEW.ST_ID, NEW.COMPANY_FROM_ID,'StockTransfer');
 	INSERT INTO Stock_Accounting (Form_ID, GL_FLAG, AMOUNT, GL_ACC_ID, FORM_DATE, FORM_REFERENCE, COMPANY_ID,Form_Flag) VALUES (NEW.ID, 151,case when NEW.CUSTOM_CHARGES<0 then NEW.CUSTOM_CHARGES* -1 else NEW.CUSTOM_CHARGES end, NEW.CUS_ACC_ID, NEW.ST_ENTRY_DATE, NEW.ST_ID, NEW.COMPANY_FROM_ID,'StockTransfer');
-	
+    
+    -- Insert Transient Record
+	INSERT INTO Stock_Accounting (Form_ID, GL_FLAG, AMOUNT, GL_ACC_ID, FORM_DATE, FORM_REFERENCE, COMPANY_ID,Form_Flag) VALUES (NEW.ID, 5556,abs(New.ST_TOTAL * NEW.EXCHANGE_RATE), NEW.Transient_Account_Id, NEW.ST_ENTRY_DATE, NEW.ST_ID, NEW.COMPANY_To_ID,'TransientInventory');
+    
+    -- Insert Transient Account Payable
+   	INSERT INTO Stock_Accounting (Form_ID, GL_FLAG, AMOUNT, GL_ACC_ID, FORM_DATE, FORM_REFERENCE, COMPANY_ID,Form_Flag) VALUES (NEW.ID, 5557,abs(New.ST_TOTAL * NEW.EXCHANGE_RATE), NEW.Transient_Payable_Account_Id, NEW.ST_ENTRY_DATE, NEW.ST_ID, NEW.COMPANY_To_ID,'TransientInventory');
+
 
 END $$
 DELIMITER ;
@@ -1760,24 +1766,58 @@ drop trigger if Exists TR_STOCK_TRANSFER_UPT;
 DELIMITER $$
 CREATE TRIGGER `TR_STOCK_TRANSFER_UPT` AFTER UPDATE ON `stock_transfer` FOR EACH ROW BEGIN
 
-	if(
+    DECLARE done INT DEFAULT 0;
+    Declare Stock_In_Id int default null;
+    Declare New_Stock_In_Amount Decimal(22,2) default null;
+    DECLARE cur CURSOR FOR select id from Stock_In where Stock_Transfer_Id = NEW.ID;
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = 1;
+    
+    
+    if(
 		OLD.ST_TOTAL <> NEW.ST_TOTAL OR OLD.AR_ACC_ID <> NEW.AR_ACC_ID OR
 		OLD.ST_ENTRY_DATE <> NEW.ST_ENTRY_DATE OR OLD.FREIGHT_CHARGES <> NEW.FREIGHT_CHARGES OR
 		OLD.FREIGHT_ACC_ID <> NEW.FREIGHT_ACC_ID OR OLD.CUSTOM_CHARGES <> NEW.CUSTOM_CHARGES OR
-		OLD.CUS_ACC_ID <> NEW.CUS_ACC_ID
+		OLD.CUS_ACC_ID <> NEW.CUS_ACC_ID OR OLD.Transient_Account_Id <> NEW.Transient_Account_Id OR
+        OLD.Transient_Payable_Account_Id <> NEW.Transient_Payable_Account_Id OR OLD.EXCHANGE_RATE <> NEW.EXCHANGE_RATE
 	  )
 	then 
 	
-			DELETE FROM Stock_Accounting WHERE Form_ID = OLD.ID AND Form_DETAIL_ID IS NULL and Form_Flag='StockTransfer';
+			DELETE FROM Stock_Accounting WHERE Form_ID = OLD.ID AND Form_DETAIL_ID IS NULL and Form_Flag in ('StockTransfer','TransientInventory');
 			INSERT INTO Stock_Accounting (Form_ID, GL_FLAG, AMOUNT, GL_ACC_ID, FORM_DATE, FORM_REFERENCE, COMPANY_ID,Form_Flag) VALUES (NEW.ID, 57,case when NEW.ST_TOTAL<0 then NEW.ST_TOTAL* -1 else NEW.ST_TOTAL end, NEW.AR_ACC_ID, NEW.ST_ENTRY_DATE, NEW.ST_ID, NEW.COMPANY_FROM_ID,'StockTransfer');
 			INSERT INTO Stock_Accounting (Form_ID, GL_FLAG, AMOUNT, GL_ACC_ID, FORM_DATE, FORM_REFERENCE, COMPANY_ID,Form_Flag) VALUES (NEW.ID, 150,case when NEW.FREIGHT_CHARGES<0 then NEW.FREIGHT_CHARGES* -1 else NEW.FREIGHT_CHARGES end, NEW.FREIGHT_ACC_ID, NEW.ST_ENTRY_DATE, NEW.ST_ID, NEW.COMPANY_FROM_ID,'StockTransfer');
 			INSERT INTO Stock_Accounting (Form_ID, GL_FLAG, AMOUNT, GL_ACC_ID, FORM_DATE, FORM_REFERENCE, COMPANY_ID,Form_Flag) VALUES (NEW.ID, 151,case when NEW.CUSTOM_CHARGES<0 then NEW.CUSTOM_CHARGES* -1 else NEW.CUSTOM_CHARGES end, NEW.CUS_ACC_ID, NEW.ST_ENTRY_DATE, NEW.ST_ID, NEW.COMPANY_FROM_ID,'StockTransfer');
-	else 
+	        
+            -- Insert Transient Inventory
+            INSERT INTO Stock_Accounting (Form_ID, GL_FLAG, AMOUNT, GL_ACC_ID, FORM_DATE, FORM_REFERENCE, COMPANY_ID,Form_Flag) VALUES (NEW.ID, 5556,abs(New.ST_TOTAL * NEW.EXCHANGE_RATE), NEW.Transient_Account_Id, NEW.ST_ENTRY_DATE, NEW.ST_ID, NEW.COMPANY_To_ID,'TransientInventory');
+ 
+            -- Insert Transient Payable Inventory
+            INSERT INTO Stock_Accounting (Form_ID, GL_FLAG, AMOUNT, GL_ACC_ID, FORM_DATE, FORM_REFERENCE, COMPANY_ID,Form_Flag) VALUES (NEW.ID, 5557,abs(New.ST_TOTAL * NEW.EXCHANGE_RATE), NEW.Transient_Payable_Account_Id, NEW.ST_ENTRY_DATE, NEW.ST_ID, NEW.COMPANY_To_ID,'TransientInventory');
+
+			OPEN cur;
+				label: LOOP
+						FETCH cur INTO Stock_In_Id;
+						IF done = 1 THEN LEAVE label;
+						END IF;
+                        SELECT SUM(D.QUANTITY_IN * D.UNIT_PRICE * New.Exchange_Rate) into New_Stock_In_Amount FROM (
+																				SELECT A.QUANTITY_IN, C.UNIT_PRICE FROM STOCK_IN_DETAIL A
+																				JOIN (SELECT ID FROM STOCK_IN WHERE STOCK_TRANSFER_ID = NEW.ID) B ON (A.STOCK_IN_ID = B.ID)
+																				JOIN STOCK_TRANSFER_DETAIL C ON A.STOCK_TRANSFER_DETAIL_ID = C.ID
+                                                                                where A.Stock_In_Id = Stock_In_Id
+																			) as D;
+						update Stock_Accounting Set Amount = New_Stock_In_Amount where Form_ID = Stock_In_Id and Form_Flag = 'TransientInventory';
+                        
+                        
+						
+				END LOOP;
+			CLOSE cur;
+            
+    else
 	
-			update Stock_Accounting SET FORM_ID = NEW.id , FORM_REFERENCE = NEW.ST_ID,Company_ID = NEW.COMPANY_FROM_ID where Form_ID = OLD.ID and FORM_FLAG = 'StockTransfer' and Form_DETAIL_ID IS NULL;
-	
+			update Stock_Accounting SET FORM_ID = NEW.id , FORM_REFERENCE = NEW.ST_ID,Company_ID = NEW.COMPANY_FROM_ID where Form_ID = OLD.ID and FORM_FLAG in ('StockTransfer') and Form_DETAIL_ID IS NULL;
+			update Stock_Accounting SET FORM_ID = NEW.id , FORM_REFERENCE = NEW.ST_ID,Company_ID = NEW.COMPANY_To_ID where Form_ID = OLD.ID and FORM_FLAG in ('TransientInventory') and Form_DETAIL_ID IS NULL;
+
 	end if;
-	
+
 END $$
 DELIMITER ;
 
@@ -1785,8 +1825,9 @@ drop trigger if Exists TR_STOCK_TRANSFER_DEL;
 DELIMITER $$
 CREATE TRIGGER `TR_STOCK_TRANSFER_DEL` BEFORE DELETE ON `stock_transfer` FOR EACH ROW BEGIN
 
-	DELETE FROM Stock_Accounting WHERE Form_ID = OLD.ID and Form_Flag='StockTransfer';
+    DELETE FROM Stock_Accounting WHERE Form_ID = OLD.ID and Form_Flag in ('StockTransfer','TransientInventory');
 	
+
 END $$
 DELIMITER ;
 
@@ -1811,11 +1852,19 @@ DELIMITER ;
 
 drop trigger if Exists TR_STOCK_TRANSFER_DETAIL_UPT;
 DELIMITER $$
-CREATE TRIGGER `TR_STOCK_TRANSFER_DETAIL_UPT` AFTER UPDATE ON `stock_transfer_detail` FOR EACH ROW BEGIN
+CREATE TRIGGER `TR_STOCK_TRANSFER_DETAIL_UPT` BEFORE DELETE ON `stock_transfer` FOR EACH ROW BEGIN
 
+	DECLARE done INT DEFAULT 0;
 	DECLARE ENTRY_DATE DATETIME;
 	DECLARE ST_REF VARCHAR(50);
 	DECLARE COM_ID INT;
+    Declare IF_CURRENT_FORM_ROW_EXISTS int default 0;
+    DECLARE STOCK_IN_QUANTITY_IN INT DEFAULT 0;
+    DECLARE STOCK_OUT_EXCHANGE_RATE DECIMAL(22,2);
+    DECLARE STOCK_OUT_ITEM_UNIT_PRICE DECIMAL(22,2);
+    Declare Stock_IN_ID_ int default null;
+    DECLARE cur CURSOR FOR select STOCK_IN_ID  from Stock_In_Detail where STOCK_TRANSFER_DETAIL_ID = new.id;
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = 1;
 
 	SELECT ST_ENTRY_DATE, ST_ID, COMPANY_FROM_ID INTO ENTRY_DATE, ST_REF, COM_ID FROM STOCK_TRANSFER WHERE ID = NEW.STOCK_TRANSFER_ID;
 
@@ -1831,9 +1880,43 @@ CREATE TRIGGER `TR_STOCK_TRANSFER_DETAIL_UPT` AFTER UPDATE ON `stock_transfer_de
 				INSERT INTO stock_accounting (Form_ID, Form_DETAIL_ID, GL_FLAG, AMOUNT, GL_ACC_ID, FORM_DATE, FORM_REFERENCE, COMPANY_ID,Form_Flag) VALUES (NEW.STOCK_TRANSFER_ID, NEW.ID, 58, case when NEW.AMOUNT<0 then NEW.AMOUNT* -1 else NEW.AMOUNT end, NEW.GL_ACC_ID, ENTRY_DATE, ST_REF, COM_ID,'StockTransfer');
 				INSERT INTO stock_accounting (Form_ID, Form_DETAIL_ID, GL_FLAG, AMOUNT, GL_ACC_ID, FORM_DATE, FORM_REFERENCE, COMPANY_ID,Form_Flag) VALUES (NEW.STOCK_TRANSFER_ID, NEW.ID, 59, case when NEW.AMOUNT_OUT<0 then NEW.AMOUNT_OUT* -1 else NEW.AMOUNT_OUT end, NEW.COS_ACC_ID, ENTRY_DATE, ST_REF, COM_ID,'StockTransfer');
 				INSERT INTO stock_accounting (Form_ID, Form_DETAIL_ID, GL_FLAG, AMOUNT, GL_ACC_ID, FORM_DATE, FORM_REFERENCE, COMPANY_ID,Form_Flag) VALUES (NEW.STOCK_TRANSFER_ID, NEW.ID, 60, case when NEW.AMOUNT_OUT<0 then NEW.AMOUNT_OUT* -1 else NEW.AMOUNT_OUT end, NEW.INV_ACC_ID, ENTRY_DATE, ST_REF, COM_ID,'StockTransfer');
-		else 
+		
+				select count(*) into IF_CURRENT_FORM_ROW_EXISTS from Stock_In_Detail where STOCK_TRANSFER_DETAIL_ID = new.id;
+                
+                if 
+					IF_CURRENT_FORM_ROW_EXISTS > 0
+				then 
+					select Exchange_Rate into STOCK_OUT_EXCHANGE_RATE from Stock_Transfer where id = new.STOCK_TRANSFER_ID;
+					
+                    
+					OPEN cur;
+				label: LOOP
+						FETCH cur INTO Stock_IN_ID_;
+                        IF done = 1 THEN LEAVE label;
+						END IF;
+						select Quantity_IN into STOCK_IN_QUANTITY_IN from Stock_In_Detail where STOCK_TRANSFER_DETAIL_ID = new.id and Stock_IN_ID = Stock_IN_ID_;
+                        
+                        
+                       
+                        
+                        update Stock_Accounting set Amount = Amount - (STOCK_OUT_EXCHANGE_RATE * STOCK_IN_QUANTITY_IN * OLD.UNIT_PRICE)
+                        where FORM_ID = Stock_IN_ID_ and FORM_FLAG = 'TransientInventory';
+                        
+                        update Stock_Accounting set Amount = Amount + (STOCK_OUT_EXCHANGE_RATE * STOCK_IN_QUANTITY_IN * NEW.UNIT_PRICE)
+                        where FORM_ID = Stock_IN_ID_ and FORM_FLAG = 'TransientInventory';
+                        
+                        
+                        
+						
+				END LOOP;
+			CLOSE cur;
+
+                    
+				END IF;
+        
+        else 
 				UPDATE stock_accounting SET Form_ID = NEW.STOCK_TRANSFER_ID, Form_DETAIL_ID = NEW.ID, FORM_REFERENCE = ST_REF, COMPANY_ID = COM_ID WHERE Form_DETAIL_ID = OLD.ID and FORM_FLAG = 'StockTransfer';
-	end if;
+	end if;	
 
 END $$
 DELIMITER ;
@@ -1918,11 +2001,38 @@ CREATE TRIGGER `TR_STOCK_IN_DETAIL` AFTER INSERT ON `stock_in_detail` FOR EACH R
 	DECLARE ENTRY_DATE DATETIME;
 	DECLARE SN_REF VARCHAR(50);
 	DECLARE COM_ID INT;
+    DECLARE STOCK_OUT_ID INT DEFAULT 0;
+    DECLARE STOCK_IN_QUANTITY_IN INT DEFAULT 0;
+    DECLARE STOCK_OUT_EXCHANGE_RATE DECIMAL(22,2);
+    DECLARE STOCK_OUT_ITEM_UNIT_PRICE DECIMAL(22,2);
+    DECLARE TRANSIENT_INVENTORY_ACCOUNT INT default 0;
+    DECLARE TRANSIENT_INVENTORY_PAYABLE_ACCOUNT INT default 0;
+    Declare IF_CURRENT_FORM_ROW_EXISTS int default 0;
 
+    SET STOCK_IN_QUANTITY_IN = NEW.QUANTITY_IN;
+    
+    select STOCK_TRANSFER_ID,UNIT_PRICE into STOCK_OUT_ID,STOCK_OUT_ITEM_UNIT_PRICE from STOCK_TRANSFER_DETAIL where id = NEW.STOCK_TRANSFER_DETAIL_ID;
+    
+    select EXCHANGE_RATE,Transient_Account_Id,Transient_Payable_Account_Id into STOCK_OUT_EXCHANGE_RATE,TRANSIENT_INVENTORY_ACCOUNT,TRANSIENT_INVENTORY_PAYABLE_ACCOUNT from Stock_Transfer where id = STOCK_OUT_ID;
+    
+    
 	SELECT SN_ENTRY_DATE, SN_ID, COMPANY_ID INTO ENTRY_DATE, SN_REF, COM_ID FROM STOCK_IN WHERE ID = NEW.STOCK_IN_ID;
 	
 	INSERT INTO Stock_Accounting (Form_ID, Form_DETAIL_ID, GL_FLAG, AMOUNT, GL_ACC_ID, FORM_DATE, FORM_REFERENCE, COMPANY_ID,Form_Flag) VALUES (NEW.STOCK_IN_ID, NEW.ID, 64,case when NEW.AMOUNT_IN<0 then NEW.AMOUNT_IN*-1 else NEW.AMOUNT_IN end, NEW.INV_ACC_ID, ENTRY_DATE, SN_REF, COM_ID,'StockIn');
 	
+	
+    select count(*) into IF_CURRENT_FORM_ROW_EXISTS from Stock_Accounting where FORM_ID = NEW.STOCK_IN_ID  and FORM_FLAG = 'TransientInventory';
+  
+    if 
+        IF_CURRENT_FORM_ROW_EXISTS > 0
+    then 
+         update Stock_Accounting Set Amount = Amount  + ABS(STOCK_IN_QUANTITY_IN * STOCK_OUT_ITEM_UNIT_PRICE * STOCK_OUT_EXCHANGE_RATE) where FORM_ID = NEW.STOCK_IN_ID and FORM_FLAG = 'TransientInventory';
+	else 
+     
+		INSERT INTO Stock_Accounting (Form_ID, GL_FLAG, AMOUNT, GL_ACC_ID, FORM_DATE, FORM_REFERENCE, COMPANY_ID,Form_Flag) VALUES (NEW.STOCK_IN_ID,5558,ABS(STOCK_IN_QUANTITY_IN * STOCK_OUT_ITEM_UNIT_PRICE * STOCK_OUT_EXCHANGE_RATE), TRANSIENT_INVENTORY_ACCOUNT, ENTRY_DATE, SN_REF, COM_ID,'TransientInventory');
+		INSERT INTO Stock_Accounting (Form_ID, GL_FLAG, AMOUNT, GL_ACC_ID, FORM_DATE, FORM_REFERENCE, COMPANY_ID,Form_Flag) VALUES (NEW.STOCK_IN_ID,5559,ABS(STOCK_IN_QUANTITY_IN * STOCK_OUT_ITEM_UNIT_PRICE * STOCK_OUT_EXCHANGE_RATE), TRANSIENT_INVENTORY_PAYABLE_ACCOUNT, ENTRY_DATE, SN_REF, COM_ID,'TransientInventory');
+	end if;
+     
 END $$
 DELIMITER ;
 
@@ -1934,7 +2044,15 @@ CREATE TRIGGER `TR_STOCK_IN_DETAIL_UPT` AFTER UPDATE ON `stock_in_detail` FOR EA
 	DECLARE ENTRY_DATE DATETIME;
 	DECLARE SN_REF VARCHAR(50);
 	DECLARE COM_ID INT;
-
+    DECLARE STOCK_OUT_ID INT DEFAULT 0;
+    DECLARE STOCK_IN_QUANTITY_IN INT DEFAULT 0;
+    DECLARE STOCK_OUT_EXCHANGE_RATE DECIMAL(22,2);
+    DECLARE STOCK_OUT_ITEM_UNIT_PRICE DECIMAL(22,2);
+    DECLARE TRANSIENT_INVENTORY_ACCOUNT INT default 0;
+    DECLARE TRANSIENT_INVENTORY_PAYABLE_ACCOUNT INT default 0;
+    Declare IF_CURRENT_FORM_ROW_EXISTS int default 0;
+    
+    
 	SELECT SN_ENTRY_DATE, SN_ID, COMPANY_ID INTO ENTRY_DATE, SN_REF, COM_ID FROM STOCK_IN WHERE ID = NEW.STOCK_IN_ID;
 
 	if( 
@@ -1942,11 +2060,30 @@ CREATE TRIGGER `TR_STOCK_IN_DETAIL_UPT` AFTER UPDATE ON `stock_in_detail` FOR EA
 	  )	
 	  then 
 	  
-			DELETE FROM Stock_Accounting WHERE Form_DETAIL_ID = OLD.ID and Form_Flag='StockIn';
-			
+			DELETE FROM Stock_Accounting WHERE Form_DETAIL_ID = OLD.ID and Form_Flag in ('StockIn');
+			Delete From Stock_Accounting where Form_Id = OLD.STOCK_IN_ID and Form_Detail_ID = OLD.ID and FORM_FLAG in ('TransientInventory');
+            
+			SET STOCK_IN_QUANTITY_IN = NEW.QUANTITY_IN;
+    
+			select STOCK_TRANSFER_ID,UNIT_PRICE into STOCK_OUT_ID,STOCK_OUT_ITEM_UNIT_PRICE from STOCK_TRANSFER_DETAIL where id = NEW.STOCK_TRANSFER_DETAIL_ID;
+			select EXCHANGE_RATE,Transient_Account_Id,Transient_Payable_Account_Id into STOCK_OUT_EXCHANGE_RATE,TRANSIENT_INVENTORY_ACCOUNT,TRANSIENT_INVENTORY_PAYABLE_ACCOUNT from Stock_Transfer where id = STOCK_OUT_ID;
+            
+            select count(*) into IF_CURRENT_FORM_ROW_EXISTS from Stock_Accounting where FORM_ID = NEW.STOCK_IN_ID and FORM_FLAG = 'TransientInventory';
+  
+			if 
+				IF_CURRENT_FORM_ROW_EXISTS > 0
+			then 
+				update Stock_Accounting Set Amount = Amount  + ABS(STOCK_IN_QUANTITY_IN * STOCK_OUT_ITEM_UNIT_PRICE * STOCK_OUT_EXCHANGE_RATE) where FORM_ID = NEW.STOCK_IN_ID and FORM_FLAG = 'TransientInventory';
+			else 
+				INSERT INTO Stock_Accounting (Form_ID, GL_FLAG, AMOUNT, GL_ACC_ID, FORM_DATE, FORM_REFERENCE, COMPANY_ID,Form_Flag) VALUES (NEW.STOCK_IN_ID,5558,ABS(STOCK_IN_QUANTITY_IN * STOCK_OUT_ITEM_UNIT_PRICE * STOCK_OUT_EXCHANGE_RATE), TRANSIENT_INVENTORY_ACCOUNT, ENTRY_DATE, SN_REF, COM_ID,'TransientInventory');
+				INSERT INTO Stock_Accounting (Form_ID, GL_FLAG, AMOUNT, GL_ACC_ID, FORM_DATE, FORM_REFERENCE, COMPANY_ID,Form_Flag) VALUES (NEW.STOCK_IN_ID,5559,ABS(STOCK_IN_QUANTITY_IN * STOCK_OUT_ITEM_UNIT_PRICE * STOCK_OUT_EXCHANGE_RATE), TRANSIENT_INVENTORY_PAYABLE_ACCOUNT, ENTRY_DATE, SN_REF, COM_ID,'TransientInventory');
+			end if;
+            
 			INSERT INTO Stock_Accounting (Form_ID, Form_DETAIL_ID, GL_FLAG, AMOUNT, GL_ACC_ID, FORM_DATE, FORM_REFERENCE, COMPANY_ID,Form_Flag) VALUES (NEW.STOCK_IN_ID, NEW.ID, 64, case when NEW.AMOUNT_IN<0 then NEW.AMOUNT_IN*-1 else NEW.AMOUNT_IN end, NEW.INV_ACC_ID, ENTRY_DATE, SN_REF, COM_ID,'StockIn');
 	  else 
-			UPDATE Stock_Accounting SET Form_ID = NEW.STOCK_IN_ID, Form_DETAIL_ID = NEW.ID, FORM_REFERENCE = SN_REF, COMPANY_ID = COM_ID WHERE Form_DETAIL_ID = OLD.ID and FORM_FLAG = 'StockIn';
+			UPDATE Stock_Accounting SET Form_ID = NEW.STOCK_IN_ID, Form_DETAIL_ID = NEW.ID, FORM_REFERENCE = SN_REF, COMPANY_ID = COM_ID WHERE Form_DETAIL_ID = OLD.ID and FORM_FLAG in ('StockIn');
+			UPDATE Stock_Accounting SET Form_ID = NEW.STOCK_IN_ID, FORM_REFERENCE = SN_REF, COMPANY_ID = COM_ID WHERE Form_ID = NEW.STOCK_IN_ID and FORM_FLAG = 'TransientInventory';
+
 	end if;
 
 END $$
@@ -1956,7 +2093,9 @@ drop trigger if Exists TR_STOCK_IN_DETAIL_DEL;
 DELIMITER $$
 CREATE TRIGGER `TR_STOCK_IN_DETAIL_DEL` BEFORE DELETE ON `stock_in_detail` FOR EACH ROW BEGIN
 
-	DELETE FROM Stock_Accounting WHERE Form_DETAIL_ID = OLD.ID and Form_Flag='StockIn';
+    DELETE FROM Stock_Accounting WHERE Form_DETAIL_ID = OLD.ID and Form_Flag='StockIn';
+    
+    DELETE FROM Stock_Accounting WHERE Form_ID = OLD.STOCK_IN_ID and Form_Flag='TransientInventory';
 	
 END $$
 DELIMITER ;
