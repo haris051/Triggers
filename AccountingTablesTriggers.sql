@@ -62,6 +62,33 @@ CREATE TRIGGER `TR_ACCOUNTS_ID_UPDATE` Before Update ON `accounts_id` FOR EACH R
 END $$
 DELIMITER ;
 
+drop trigger if Exists TR_ACCOUNTS_ID_UPDATE_AFTER;
+DELIMITER $$
+CREATE TRIGGER `TR_ACCOUNTS_ID_UPDATE_AFTER` AFTER UPDATE ON `accounts_id` FOR EACH ROW BEGIN
+
+    Declare Old_Account_Type int;
+	Declare New_Account_Type int;
+ 
+    if (OLD.ACCOUNT_TYPE_ID <> NEW.ACCOUNT_TYPE_ID)
+	then 
+		select Account_Id into Old_Account_Type from Account_Type where id = OLD.ACCOUNT_TYPE_ID;
+		select Account_Id into New_Account_Type from Account_Type where id = NEW.ACCOUNT_TYPE_ID;
+	 
+		if (Old_Account_Type = 3 OR Old_Account_Type = 2 OR Old_Account_Type = 5) AND (New_Account_Type = 1 OR New_Account_Type = 4 OR New_Account_Type = 6)
+			then
+		   
+				update Daily_Account_Balance Set Balance = Credit - Debit where AccountId = New.id;
+		   
+		 elseif (Old_Account_Type = 1 OR Old_Account_Type = 4 OR Old_Account_Type = 6) And (New_Account_Type = 3 OR New_Account_Type = 2 OR New_Account_Type = 5)
+			then 
+				update Daily_Account_Balance Set Balance = Debit- Credit where AccountId = New.id;
+			
+		 end if;
+	 end if;
+	
+	
+END $$
+DELIMITER ;
 
 -- This Triger Insert or Update the Daily Account Balance when ever new entry insert in Stock Accounting
 
