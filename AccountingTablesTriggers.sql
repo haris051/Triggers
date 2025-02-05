@@ -1,4 +1,5 @@
 
+
 drop trigger if exists TR_ACCOUNTS_ID;
 drop trigger if exists TR_ACCOUNTS_ID_DEL;
 drop trigger if exists TR_ACCOUNTS_ID_UPDATE;
@@ -99,6 +100,27 @@ CREATE TRIGGER `TR_STOCK_ACCOUNTING` AFTER INSERT ON `stock_accounting` FOR EACH
 
     select FUNC_SET_DAILY_ACCOUNT_BALANCE(NEW.GL_ACC_ID,NEW.Amount,NEW.GL_FLAG,NEW.FORM_DATE) into Message;
 
+	
+END $$
+DELIMITER ;
+
+-- This Triger Reverse the Daily Account Balance when ever any entry deletes in Stock Accounting
+
+drop trigger if Exists TR_STOCK_ACCOUNTING_UPT;
+DELIMITER $$
+CREATE TRIGGER `TR_STOCK_ACCOUNTING_UPT` AFTER UPDATE ON `stock_accounting` FOR EACH ROW BEGIN
+
+    DECLARE MESSAGE TEXT DEFAULT '';
+
+	IF (OLD.GL_ACC_ID <> NEW.GL_ACC_ID OR OLD.AMOUNT <> NEW.AMOUNT OR OLD.GL_FLAG <> NEW.GL_FLAG OR OLD.FORM_DATE <> NEW.FORM_DATE)
+    THEN
+
+		-- Negative Sign is used to avoid reversal transactions instead simply subtract the amount
+		SELECT FUNC_SET_DAILY_ACCOUNT_BALANCE(OLD.GL_ACC_ID, OLD.AMOUNT * -1, OLD.GL_FLAG, OLD.FORM_DATE) INTO MESSAGE;
+		
+		SELECT FUNC_SET_DAILY_ACCOUNT_BALANCE(NEW.GL_ACC_ID, NEW.AMOUNT, NEW.GL_FLAG, NEW.FORM_DATE) INTO MESSAGE;
+    
+    END IF;
 	
 END $$
 DELIMITER ;
